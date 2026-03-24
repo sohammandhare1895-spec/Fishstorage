@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>BODRA-FRESH | Smart Fish Storage & 3D Aquarium Network</title>
+  <!-- Google Fonts + Font Awesome for Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Three.js Core + Add-ons for 3D Fish -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+      }
+    }
+  </script>
+  <!-- HTML5 QR Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #fef9e8;
+      color: #2e241f;
+      scroll-behavior: smooth;
+      overflow-x: hidden;
+    }
+
+    /* 3D Canvas Background - fixed behind content */
+    #canvas-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.35;
+    }
+
+    /* Main content overlay */
+    .main-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem;
+    }
+
+    /* header with glassmorphism */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      flex-wrap: wrap;
+      border-bottom: 2px solid rgba(232, 219, 188, 0.6);
+      padding-bottom: 1rem;
+      margin-bottom: 2rem;
+      backdrop-filter: blur(4px);
+      background: rgba(254, 249, 232, 0.7);
+      border-radius: 2rem;
+      padding: 1rem 2rem;
+    }
+    .logo h1 {
+      font-size: 2.3rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #c7a45b, #a57c2c);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .logo p {
+      font-size: 0.85rem;
+      color: #8b7a62;
+      font-weight: 500;
+    }
+    .tagline {
+      font-style: italic;
+      color: #b39264;
+      font-weight: 500;
+    }
+
+    /* Smart Basket Card */
+    .smart-basket {
+      background: rgba(255, 250, 240, 0.92);
+      backdrop-filter: blur(8px);
+      border-radius: 2rem;
+      box-shadow: 0 20px 35px -12px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+      padding: 1.8rem 2rem;
+      margin-bottom: 2.5rem;
+      border: 1px solid rgba(240, 229, 210, 0.8);
+    }
+    .basket-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .basket-header h2 i {
+      color: #c7a45b;
+      margin-right: 0.5rem;
+    }
+    .adapt-buttons {
+      display: flex;
+      gap: 1.2rem;
+    }
+    .adapt-btn {
+      padding: 0.7rem 1.8rem;
+      border-radius: 3rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 1rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .fresh-btn {
+      background: #3b82f6;
+      color: white;
+    }
+    .salt-btn {
+      background: #0f766e;
+      color: white;
+    }
+    .adapt-btn:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.03);
+    }
+
+    /* 3 lights panel */
+    .lights-panel {
+      display: flex;
+      gap: 2rem;
+      margin: 1.5rem 0;
+      background: rgba(246, 239, 223, 0.9);
+      padding: 1rem 1.8rem;
+      border-radius: 3rem;
+      width: fit-content;
+    }
+    .light {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .led {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #ccc9c0;
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1);
+      transition: all 0.2s;
+    }
+    .led.active-green {
+      background: #2ecc71;
+      box-shadow: 0 0 14px #2ecc71;
+    }
+    .led.active-red {
+      background: #e74c3c;
+      box-shadow: 0 0 14px #e74c3c;
+    }
+    .led.active-blue {
+      background: #3498db;
+      box-shadow: 0 0 14px #3498db;
+    }
+    .light span {
+      font-weight: 500;
+      font-size: 0.8rem;
+      color: #5c4e3a;
+    }
+
+    /* Scanner & Fish Card */
+    .scanner-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      margin-bottom: 2.5rem;
+    }
+    .scanner-box {
+      flex: 1.2;
+      background: rgba(255, 250, 240, 0.92);
+      backdrop-filter: blur(4px);
+      border-radius: 1.8rem;
+      padding: 1.2rem;
+      border: 1px solid rgba(239, 226, 207, 0.8);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.03);
+    }
+    .fish-info-card {
+      flex: 1;
+      background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(254,247,234,0.95));
+      backdrop-filter: blur(4px);
+      border-radius: 1.8rem;
+      padding: 1.4rem;
+      border-left: 6px solid #c7a45b;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+    #reader {
+      width: 100%;
+      border-radius: 1.2rem;
+      overflow: hidden;
+      background: #00000022;
+    }
+    .scan-controls {
+      margin-top: 1rem;
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+    .btn-scan, .btn-stop {
+      background: #e7dbbc;
+      border: none;
+      padding: 0.6rem 1.3rem;
+      border-radius: 2rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .btn-scan {
+      background: #c7a45b;
+      color: white;
+    }
+    .manual-input {
+      margin-top: 1rem;
+      display: flex;
+      gap: 0.6rem;
+    }
+    #manualFishName {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      border-radius: 2rem;
+      border: 1px solid #e2d4be;
+      background: white;
+    }
+    .fish-detail-item {
+      margin-bottom: 1rem;
+      border-bottom: 1px dashed #eedfc9;
+      padding-bottom: 0.6rem;
+    }
+    .fish-detail-item strong {
+      color: #a57c2c;
+      font-weight: 700;
+      display: inline-block;
+      min-width: 110px;
+    }
+    .no-fish {
+      color: #b68b40;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    /* Fisherman Community */
+    .community-section {
+      margin-top: 2rem;
+      background: rgba(255, 252, 245, 0.94);
+      backdrop-filter: blur(4px);
+      border-radius: 2rem;
+      padding: 1.8rem;
+      border: 1px solid #eedfc2;
+    }
+    .community-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .community-header h2 i {
+      color: #0077b5;
+    }
+    .add-post {
+      background: #f3ebdb;
+      padding: 0.4rem 1rem;
+      border-radius: 2rem;
+      cursor: pointer;
+      font-weight: 500;
+      transition: 0.2s;
+    }
+    .fisherman-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      max-height: 480px;
+      overflow-y: auto;
+      padding-right: 0.5rem;
+    }
+    .network-card {
+      background: white;
+      border-radius: 1.2rem;
+      padding: 1rem 1.3rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+      border: 1px solid #f0e4d0;
+      transition: 0.2s;
+    }
+    .network-card:hover {
+      border-left: 4px solid #c7a45b;
+      background: #fffef8;
+    }
+    .profile-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.6rem;
+    }
+    .avatar {
+      width: 48px;
+      height: 48px;
+      background: #e7dbbc;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.3rem;
+      color: #a77f3e;
+    }
+    .name-time h4 {
+      font-weight: 700;
+    }
+    .name-time p {
+      font-size: 0.7rem;
+      color: #aa946e;
+    }
+    .message {
+      margin-left: 3.5rem;
+      margin-bottom: 0.5rem;
+      color: #3d3529;
+    }
+    .interact {
+      margin-left: 3.5rem;
+      display: flex;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: #9f8a66;
+    }
+    .interact i {
+      margin-right: 0.3rem;
+      cursor: pointer;
+    }
+    .new-post-form {
+      margin-top: 1.5rem;
+      display: flex;
+      gap: 0.8rem;
+      background: #faf3e6;
+      padding: 1rem;
+      border-radius: 2rem;
+    }
+    #newPostInput {
+      flex: 1;
+      border: none;
+      background: white;
+      border-radius: 2rem;
+      padding: 0.6rem 1.2rem;
+    }
+    .post-btn {
+      background: #c7a45b;
+      border: none;
+      padding: 0 1.5rem;
+      border-radius: 2rem;
+      color: white;
+      font-weight: bold;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      padding: 1.5rem;
+      border-top: 1px solid #e8ddc8;
+      color: #b3926c;
+      background: rgba(255,250,240,0.6);
+      border-radius: 2rem;
+    }
+    @media (max-width: 800px) {
+      .container {
+        padding: 1rem;
+      }
+      .scanner-section {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- 3D Canvas Container for moving fish -->
+<div id="canvas-container"></div>
+
+<div class="main-content">
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">
+      <h1>🐟 BODRA-FRESH</h1>
+      <p>intelligent bio-adaptive fish storage • any species • any water • 3D aquarium</p>
+    </div>
+    <div class="tagline">
+      <i class="fas fa-microchip"></i> AI-driven ecosystem + live 3D fish
+    </div>
+  </div>
+
+  <!-- Smart Basket / Machine Panel -->
+  <div class="smart-basket">
+    <div class="basket-header">
+      <h2><i class="fas fa-archive"></i> SMART BASKET | STORAGE MATRIX</h2>
+      <div class="adapt-buttons">
+        <button class="adapt-btn fresh-btn" id="freshWaterBtn"><i class="fas fa-tint"></i> FRESH WATER MODE</button>
+        <button class="adapt-btn salt-btn" id="saltWaterBtn"><i class="fas fa-water"></i> SALT WATER MODE</button>
+      </div>
+    </div>
+    <div class="lights-panel">
+      <div class="light">
+        <div class="led" id="greenLed"></div>
+        <span>SAFETY (GREEN)</span>
+      </div>
+      <div class="light">
+        <div class="led" id="redLed"></div>
+        <span>RISK (RED)</span>
+      </div>
+      <div class="light">
+        <div class="led" id="blueLed"></div>
+        <span>COOLING (BLUE)</span>
+      </div>
+    </div>
+    <div style="font-size: 0.9rem; background:#f6efdf; padding: 0.5rem 1rem; border-radius: 2rem; display: inline-block;">
+      <i class="fas fa-info-circle"></i> Current Adaptation: <strong id="adaptationStatus">Freshwater Mode</strong> | Fish compatibility check active
+    </div>
+  </div>
+
+  <!-- Camera Scanner + Fish Details -->
+  <div class="scanner-section">
+    <div class="scanner-box">
+      <h3><i class="fas fa-camera-retro"></i> AI FISH SCANNER</h3>
+      <p style="font-size: 0.8rem; margin-bottom: 1rem;">Point camera at any fish (or QR/barcode simulation) — auto fetch global data</p>
+      <div id="reader" style="width:100%;"></div>
+      <div class="scan-controls">
+        <button id="startScanBtn" class="btn-scan"><i class="fas fa-play"></i> Start Camera</button>
+        <button id="stopScanBtn" class="btn-stop"><i class="fas fa-stop"></i> Stop</button>
+      </div>
+      <div class="manual-input">
+        <input type="text" id="manualFishName" placeholder="Or type fish name (e.g., Salmon, Tuna, Goldfish, Koi)" autocomplete="off">
+        <button id="manualLookupBtn" class="btn-scan" style="background:#a57c2c;">🔍 Scan by name</button>
+      </div>
+      <small style="display: block; margin-top: 10px;"><i class="fas fa-qrcode"></i> Simulated QR: any fish name works as virtual scan</small>
+    </div>
+    <div class="fish-info-card" id="fishInfoCard">
+      <h3><i class="fas fa-fish"></i> Fish Profile <span style="font-size:0.7rem;">(real-time)</span></h3>
+      <div id="fishDetails">
+        <div class="no-fish"><i class="fas fa-camera"></i> Scan a fish or enter name → get complete nutritional, origin, price data</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fisherman Community (LinkedIn style networking) -->
+  <div class="community-section">
+    <div class="community-header">
+      <h2><i class="fab fa-linkedin"></i> Fisherman's Net | Global Community</h2>
+      <div class="add-post" id="togglePostFormBtn"><i class="fas fa-plus-circle"></i> Share catch / network</div>
+    </div>
+    <div id="communityFeed" class="fisherman-feed">
+      <!-- Dynamic fisherman posts appear here -->
+    </div>
+    <div id="newPostPanel" style="display: none;">
+      <div class="new-post-form">
+        <input type="text" id="newPostInput" placeholder="Share your fishing story, ask for advice, or network...">
+        <button id="submitPostBtn" class="post-btn">Post <i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <i class="fas fa-fish"></i> 3D real fish swimming | BODRA-FRESH — Smartest fish preservation & community for global fishermen.
+  </footer>
+</div>
+</div>
+
+<script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+  // --- Setup 3D Scene with multiple realistic fish ---
+  const container = document.getElementById('canvas-container');
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a2f3a);
+  scene.fog = new THREE.FogExp2(0x0a2f3a, 0.008);
+
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(5, 3, 8);
+  camera.lookAt(0, 0, 0);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x0a2f3a, 0.4); // semi-transparent for cream background blend
+  renderer.shadowMap.enabled = true;
+  container.appendChild(renderer.domElement);
+
+  // Lights for underwater effect
+  const ambientLight = new THREE.AmbientLight(0x404060);
+  scene.add(ambientLight);
+  const dirLight = new THREE.DirectionalLight(0xfff5e0, 1);
+  dirLight.position.set(2, 5, 3);
+  dirLight.castShadow = true;
+  scene.add(dirLight);
+  const backLight = new THREE.PointLight(0x4466cc, 0.5);
+  backLight.position.set(-2, 1, -3);
+  scene.add(backLight);
+  const fillLight = new THREE.PointLight(0xffaa66, 0.4);
+  fillLight.position.set(1, 2, 2);
+  scene.add(fillLight);
+
+  // Underwater particles (bubbles)
+  const bubbleGeo = new THREE.BufferGeometry();
+  const bubbleCount = 300;
+  const bubblePositions = new Float32Array(bubbleCount * 3);
+  for (let i = 0; i < bubbleCount; i++) {
+    bubblePositions[i*3] = (Math.random() - 0.5) * 18;
+    bubblePositions[i*3+1] = (Math.random() - 0.5) * 10;
+    bubblePositions[i*3+2] = (Math.random() - 0.5) * 12 - 5;
+  }
+  bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bubblePositions, 3));
+  const bubbleMat = new THREE.PointsMaterial({ color: 0xaaffdd, transparent: true, opacity: 0.5, size: 0.08 });
+  const bubbles = new THREE.Points(bubbleGeo, bubbleMat);
+  scene.add(bubbles);
+
+  // Create Fish Class (simple extruded shape + texture)
+  function createFish(color, sizeScale = 1, tailColor = null) {
+    const group = new THREE.Group();
+    // body: elongated sphere
+    const bodyGeo = new THREE.SphereGeometry(0.35 * sizeScale, 24, 24);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: color, emissive: 0x221100, roughness: 0.3, metalness: 0.2 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.scale.set(1.4, 0.7, 0.5);
+    body.position.set(0, 0, 0);
+    group.add(body);
+    
+    // tail fin
+    const tailGeo = new THREE.ConeGeometry(0.3 * sizeScale, 0.5 * sizeScale, 8);
+    const tailMat = new THREE.MeshStandardMaterial({ color: tailColor || color, emissive: 0x331100 });
+    const tail = new THREE.Mesh(tailGeo, tailMat);
+    tail.position.set(-0.7 * sizeScale, 0, 0);
+    tail.rotation.z = 0;
+    tail.rotation.x = 0;
+    group.add(tail);
+    
+    // dorsal fin
+    const dorsalGeo = new THREE.ConeGeometry(0.2 * sizeScale, 0.4 * sizeScale, 6);
+    const dorsal = new THREE.Mesh(dorsalGeo, tailMat);
+    dorsal.position.set(0, 0.35 * sizeScale, 0);
+    dorsal.scale.set(0.8, 0.3, 0.5);
+    group.add(dorsal);
+    
+    // eye
+    const eyeGeo = new THREE.SphereGeometry(0.08 * sizeScale, 16, 16);
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeL.position.set(0.5 * sizeScale, 0.2 * sizeScale, 0.35 * sizeScale);
+    group.add(eyeL);
+    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeR.position.set(0.5 * sizeScale, 0.2 * sizeScale, -0.35 * sizeScale);
+    group.add(eyeR);
+    const pupilGeo = new THREE.SphereGeometry(0.04 * sizeScale, 16, 16);
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    const pupilL = new THREE.Mesh(pupilGeo, pupilMat);
+    pupilL.position.set(0.55 * sizeScale, 0.2 * sizeScale, 0.38 * sizeScale);
+    group.add(pupilL);
+    const pupilR = new THREE.Mesh(pupilGeo, pupilMat);
+    pupilR.position.set(0.55 * sizeScale, 0.2 * sizeScale, -0.38 * sizeScale);
+    group.add(pupilR);
+    
+    return group;
+  }
+
+  const fishColors = [0xe67e22, 0xe74c3c, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6, 0x1abc9c, 0xe84393];
+  const fishes = [];
+  for (let i = 0; i < 22; i++) {
+    const col = fishColors[Math.floor(Math.random() * fishColors.length)];
+    const size = 0.5 + Math.random() * 0.4;
+    const fish = createFish(col, size, 0xcc8844);
+    fish.userData = {
+      speed: 0.008 + Math.random() * 0.012,
+      angle: Math.random() * Math.PI * 2,
+      radiusX: 3 + Math.random() * 4,
+      radiusZ: 2 + Math.random() * 4,
+      yOffset: (Math.random() - 0.5) * 3,
+      ySpeed: 0.002 + Math.random() * 0.005,
+      yPhase: Math.random() * Math.PI * 2
+    };
+    fish.position.x = (Math.random() - 0.5) * 7;
+    fish.position.y = (Math.random() - 0.5) * 3;
+    fish.position.z = (Math.random() - 0.5) * 6;
+    scene.add(fish);
+    fishes.push(fish);
+  }
+  
+  // Add some floating kelp/plants (simple cylinders)
+  const kelpMat = new THREE.MeshStandardMaterial({ color: 0x3d9e3d });
+  for (let i = 0; i < 40; i++) {
+    const kelp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.2, 0.8 + Math.random() * 1.2, 4), kelpMat);
+    kelp.position.x = (Math.random() - 0.5) * 12;
+    kelp.position.z = (Math.random() - 0.5) * 10 - 3;
+    kelp.position.y = -1.2 + Math.random() * 0.5;
+    kelp.castShadow = true;
+    scene.add(kelp);
+  }
+  
+  // Underwater ground shimmer
+  const groundPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(14, 12),
+    new THREE.MeshStandardMaterial({ color: 0x5a4a2e, roughness: 0.9, metalness: 0.1, transparent: true, opacity: 0.3 })
+  );
+  groundPlane.rotation.x = -Math.PI / 2;
+  groundPlane.position.y = -1.5;
+  scene.add(groundPlane);
+  
+  let time = 0;
+  function animateFish() {
+    time += 0.016;
+    fishes.forEach(fish => {
+      const data = fish.userData;
+      data.angle += data.speed;
+      const x = Math.cos(data.angle) * data.radiusX;
+      const z = Math.sin(data.angle) * data.radiusZ;
+      const y = data.yOffset + Math.sin(time * 1.5 + data.yPhase) * 0.5;
+      fish.position.x = x;
+      fish.position.z = z;
+      fish.position.y = y;
+      // rotation to face direction of movement
+      const directionAngle = Math.atan2(Math.sin(data.angle) * data.radiusZ, Math.cos(data.angle) * data.radiusX);
+      fish.rotation.y = directionAngle;
+      fish.rotation.z = Math.sin(time * 3 + data.angle) * 0.2;
+      fish.rotation.x = Math.sin(time * 2) * 0.1;
+    });
+    bubbles.rotation.y += 0.002;
+    bubbles.rotation.x += 0.001;
+    renderer.render(scene, camera);
+    requestAnimationFrame(animateFish);
+  }
+  
+  animateFish();
+  
+  // Simple camera orbit for dynamic view (gentle auto-move)
+  let camAngle = 0;
+  function autoCamera() {
+    camAngle += 0.002;
+    const radius = 8;
+    camera.position.x = Math.sin(camAngle) * radius * 0.5;
+    camera.position.z = 6 + Math.cos(camAngle * 0.7) * 1.5;
+    camera.position.y = 2.5 + Math.sin(camAngle) * 0.5;
+    camera.lookAt(0, 0, 0);
+    requestAnimationFrame(autoCamera);
+  }
+  autoCamera();
+  
+  window.addEventListener('resize', onWindowResize, false);
+  function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+</script>
+
+<script type="text/javascript">
+  // ---------- GLOBAL DATABASE: fish encyclopedia (rich details for any fish in the world) ----------
+  const fishDatabase = {
+    "salmon": { name:"Atlantic Salmon", scientific:"Salmo salar", origin:"North Atlantic rivers", marketPrice:"$12.99/lb", nutrients:"High Omega-3, Vitamin D, Selenium", speciality:"Anadromous, prized for flavor", waterType:"saltwater" },
+    "tuna": { name:"Bluefin Tuna", scientific:"Thunnus thynnus", origin:"Atlantic & Pacific", marketPrice:"$42.99/lb", nutrients:"Protein, Omega-3, Vitamin B12", speciality:"High migratory speed, sushi grade", waterType:"saltwater" },
+    "goldfish": { name:"Goldfish", scientific:"Carassius auratus", origin:"East Asia", marketPrice:"$5.99 each", nutrients:"Low fat, protein", speciality:"Ornamental, freshwater adaptation", waterType:"freshwater" },
+    "bass": { name:"Largemouth Bass", scientific:"Micropterus salmoides", origin:"North America", marketPrice:"$9.99/lb", nutrients:"Lean protein, phosphorus", speciality:"Sport fishing icon", waterType:"freshwater" },
+    "trout": { name:"Rainbow Trout", scientific:"Oncorhynchus mykiss", origin:"Pacific coast", marketPrice:"$11.49/lb", nutrients:"Omega-3, potassium", speciality:"Cold freshwater, vibrant colors", waterType:"freshwater" },
+    "cod": { name:"Atlantic Cod", scientific:"Gadus morhua", origin:"North Atlantic", marketPrice:"$14.99/lb", nutrients:"Vitamin B12, lean protein", speciality:"Historically significant for fisheries", waterType:"saltwater" },
+    "mackerel": { name:"Atlantic Mackerel", scientific:"Scomber scombrus", origin:"Mediterranean, Atlantic", marketPrice:"$7.99/lb", nutrients:"High omega-3, selenium", speciality:"Fast swimming, rich oil", waterType:"saltwater" },
+    "catfish": { name:"Channel Catfish", scientific:"Ictalurus punctatus", origin:"North America", marketPrice:"$6.49/lb", nutrients:"Vitamin D, protein", speciality:"Freshwater bottom dweller, barbels", waterType:"freshwater" },
+    "tilapia": { name:"Nile Tilapia", scientific:"Oreochromis niloticus", origin:"Africa", marketPrice:"$5.99/lb", nutrients:"Low mercury, protein", speciality:"Fast growing aquaculture", waterType:"freshwater" },
+    "halibut": { name:"Pacific Halibut", scientific:"Hippoglossus stenolepis", origin:"North Pacific", marketPrice:"$19.99/lb", nutrients:"Magnesium, Vitamin B6", speciality:"Largest flatfish, flaky texture", waterType:"saltwater" },
+    "snapper": { name:"Red Snapper", scientific:"Lutjanus campechanus", origin:"Gulf of Mexico", marketPrice:"$18.50/lb", nutrients:"Potassium, selenium", speciality:"Vibrant red skin, reef fish", waterType:"saltwater" },
+    "carp": { name:"Common Carp", scientific:"Cyprinus carpio", origin:"Eurasia", marketPrice:"$3.99/lb", nutrients:"Moderate protein, omega-6", speciality:"Invasive yet adaptable", waterType:"freshwater" },
+    "koi": { name:"Koi Carp", scientific:"Cyprinus rubrofuscus", origin:"Japan", marketPrice:"$50 - $500", nutrients:"High protein", speciality:"Ornamental, symbolizes luck", waterType:"freshwater" },
+    "mahi": { name:"Mahi-Mahi", scientific:"Coryphaena hippurus", origin:"Tropical oceans", marketPrice:"$15.99/lb", nutrients:"Lean protein, selenium", speciality:"Vibrant colors, fast growth", waterType:"saltwater" }
+  };
+
+  function getFishData(queryName) {
+    const normalized = queryName.trim().toLowerCase();
+    if (fishDatabase[normalized]) return fishDatabase[normalized];
+    return {
+      name: queryName.charAt(0).toUpperCase() + queryName.slice(1),
+      scientific: `${queryName.charAt(0).toUpperCase() + queryName.slice(1)} sp. (genus)`,
+      origin: "Global waters / diverse habitats",
+      marketPrice: "$8.99 - $24.99/lb (market variable)",
+      nutrients: "Protein, essential fatty acids, vitamins",
+      speciality: "Unique adaptation, supports any environment",
+      waterType: Math.random() > 0.5 ? "saltwater" : "freshwater"
+    };
+  }
+
+  let currentMode = "freshwater";
+  const greenLed = document.getElementById('greenLed');
+  const redLed = document.getElementById('redLed');
+  const blueLed = document.getElementById('blueLed');
+  const adaptStatusSpan = document.getElementById('adaptationStatus');
+  window.currentDisplayedFishWater = null;
+
+  function updateLightsAndRisk(currentFishWaterType = null) {
+    blueLed.classList.add('active-blue');
+    let risk = false;
+    if (currentFishWaterType) {
+      if ((currentMode === "freshwater" && currentFishWaterType === "saltwater") ||
+          (currentMode === "saltwater" && currentFishWaterType === "freshwater")) {
+        risk = true;
+      }
+    }
+    if (risk) {
+      redLed.classList.add('active-red');
+      greenLed.classList.remove('active-green');
+    } else {
+      redLed.classList.remove('active-red');
+      greenLed.classList.add('active-green');
+    }
+  }
+
+  document.getElementById('freshWaterBtn').addEventListener('click', () => {
+    currentMode = "freshwater";
+    adaptStatusSpan.innerText = "Freshwater Mode (low salinity)";
+    updateLightsAndRisk(window.currentDisplayedFishWater);
+    showToastEffect("Freshwater adaptation engaged: safe for river/lake fish");
+  });
+  document.getElementById('saltWaterBtn').addEventListener('click', () => {
+    currentMode = "saltwater";
+    adaptStatusSpan.innerText = "Saltwater Mode (marine ecosystem)";
+    updateLightsAndRisk(window.currentDisplayedFishWater);
+    showToastEffect("Saltwater adaptation active: optimized for ocean species");
+  });
+
+  function showToastEffect(msg) {
+    let toast = document.createElement('div');
+    toast.innerText = msg;
+    toast.style.position = 'fixed';
+    toast.style.bottom = '20px';
+    toast.style.right = '20px';
+    toast.style.backgroundColor = '#c7a45b';
+    toast.style.color = 'white';
+    toast.style.padding = '0.6rem 1.2rem';
+    toast.style.borderRadius = '2rem';
+    toast.style.zIndex = '999';
+    toast.style.fontSize = '0.8rem';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2200);
+  }
+
+  function renderFishToCard(fishKeyOrObj, queryRaw) {
+    let fish = typeof fishKeyOrObj === 'string' ? getFishData(fishKeyOrObj) : fishKeyOrObj;
+    if (!fish) fish = getFishData(queryRaw);
+    const waterType = fish.waterType || "freshwater";
+    fish.waterType = waterType;
+    window.currentDisplayedFishWater = waterType;
+    updateLightsAndRisk(waterType);
+    let html = `<div class="fish-detail-item"><strong><i class="fas fa-tag"></i> Name:</strong> ${fish.name}</div>
+      <div class="fish-detail-item"><strong><i class="fas fa-microscope"></i> Scientific:</strong> ${fish.scientific}</div>
+      <div class="fish-detail-item"><strong><i class="fas fa-globe-americas"></i> Origin:</strong> ${fish.origin}</div>
+      <div class="fish-detail-item"><strong><i class="fas fa-dollar-sign"></i> Market Price:</strong> ${fish.marketPrice}</div>
+      <div class="fish-detail-item"><strong><i class="fas fa-apple-alt"></i> Nutrients:</strong> ${fish.nutrients}</div>
+      <div class="fish-detail-item"><strong><i class="fas fa-star"></i> Speciality:</strong> ${fish.speciality}</div>
+      <div class="fish-detail-item"><strong><i class="fas fa-water"></i> Water Type:</strong> ${waterType === "freshwater" ? "Freshwater 🌊💧" : "Saltwater 🌊🧂"}</div>`;
+    document.getElementById('fishDetails').innerHTML = html;
+    if ((currentMode === "freshwater" && waterType !== "freshwater") || (currentMode === "saltwater" && waterType !== "saltwater")) {
+      const warnDiv = document.createElement('div');
+      warnDiv.className = 'fish-detail-item';
+      warnDiv.style.color = "#c0392b";
+      warnDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> WARNING: This fish requires ${waterType} but basket is in ${currentMode} mode. RISK condition activated.`;
+      document.getElementById('fishDetails').appendChild(warnDiv);
+    } else {
+      const safeDiv = document.createElement('div');
+      safeDiv.className = 'fish-detail-item';
+      safeDiv.style.color = "#27ae60";
+      safeDiv.innerHTML = `<i class="fas fa-check-circle"></i> Fish compatible with current basket mode. Safe storage.`;
+      document.getElementById('fishDetails').appendChild(safeDiv);
+    }
+  }
+
+  let html5QrCode;
+  const startBtn = document.getElementById('startScanBtn');
+  const stopBtn = document.getElementById('stopScanBtn');
+  function onScanSuccess(decodedText) {
+    if (decodedText) renderFishToCard(decodedText, decodedText);
+    else renderFishToCard("Tuna", "Tuna");
+  }
+  startBtn.addEventListener('click', () => {
+    if (html5QrCode) html5QrCode.stop().then(() => startScanner()).catch(()=> startScanner());
+    else startScanner();
+  });
+  function startScanner() {
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess, (err) => {});
+  }
+  stopBtn.addEventListener('click', () => { if(html5QrCode) html5QrCode.stop().catch(()=>{}); });
+  document.getElementById('manualLookupBtn').addEventListener('click', () => {
+    const fishInput = document.getElementById('manualFishName').value;
+    if (fishInput.trim()) renderFishToCard(fishInput, fishInput);
+  });
+
+  // Fisherman Community
+  let fishermenPosts = [
+    { id: 1, name: "Carlos Mendez", role: "Deep Sea Fisherman", avatar: "CM", time: "2h ago", content: "Just caught a 200lb Bluefin Tuna! BODRA-FRESH storage kept it perfect 🐟", likes: 24, comments: 5 },
+    { id: 2, name: "Amina Diallo", role: "Coastal Fishing Guide", avatar: "AD", time: "Yesterday", content: "Any tips for preserving freshwater tilapia using salt mode? Loving the smart basket features!", likes: 12, comments: 3 },
+    { id: 3, name: "Wei Chen", role: "Aquaculture Specialist", avatar: "WC", time: "1d ago", content: "Network with me if you export sustainable salmon. BODRA-FRESH integrated scanner is game changer.", likes: 47, comments: 8 }
+  ];
+  function renderCommunityFeed() {
+    const feedDiv = document.getElementById('communityFeed');
+    if (!feedDiv) return;
+    feedDiv.innerHTML = "";
+    fishermenPosts.forEach(post => {
+      const card = document.createElement('div');
+      card.className = 'network-card';
+      card.innerHTML = `<div class="profile-row"><div class="avatar">${post.avatar}</div><div class="name-time"><h4>${post.name} <span style="font-weight:normal;">• ${post.role}</span></h4><p>${post.time}</p></div></div><div class="message">${post.content}</div><div class="interact"><span><i class="far fa-thumbs-up like-btn" data-id="${post.id}"></i> ${post.likes}</span><span><i class="far fa-comment"></i> ${post.comments}</span><span><i class="fas fa-share-alt"></i> Connect</span></div>`;
+      feedDiv.appendChild(card);
+    });
+    document.querySelectorAll('.like-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = parseInt(btn.getAttribute('data-id'));
+        const post = fishermenPosts.find(p => p.id === id);
+        if (post) { post.likes += 1; renderCommunityFeed(); }
+      });
+    });
+  }
+  function addAutoPost(msg) {
+    fishermenPosts.unshift({ id: Date.now(), name: "BODRA Scanner", role: "AI Assistant", avatar: "🤖", time: "Just now", content: msg, likes: 0, comments: 0 });
+    renderCommunityFeed();
+  }
+  document.getElementById('togglePostFormBtn').addEventListener('click', () => {
+    const panel = document.getElementById('newPostPanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('submitPostBtn').addEventListener('click', () => {
+    const txt = document.getElementById('newPostInput').value;
+    if (txt.trim()) {
+      fishermenPosts.unshift({ id: Date.now(), name: "Fisherman User", role: "Community Member", avatar: "🐟", time: "just now", content: txt, likes: 0, comments: 0 });
+      renderCommunityFeed();
+      document.getElementById('newPostInput').value = "";
+      document.getElementById('newPostPanel').style.display = 'none';
+    }
+  });
+  blueLed.classList.add('active-blue');
+  greenLed.classList.add('active-green');
+  renderCommunityFeed();
+  updateLightsAndRisk(null);
+</script>
+</body>
+</html>
